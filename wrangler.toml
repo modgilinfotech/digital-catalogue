@@ -1,0 +1,24 @@
+name = "digital-catalogue"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+# --- D1 database binding ---
+# Create with: wrangler d1 create digital-catalogue-db
+# Then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "digital-catalogue-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# --- R2 bucket binding (product images) ---
+# Create with: wrangler r2 bucket create digital-catalogue-images
+[[r2_buckets]]
+binding = "PRODUCT_IMAGES"
+bucket_name = "digital-catalogue-images"
+
+# --- Environment variables / secrets ---
+# JWT_SECRET should NOT be committed with a real value.
+# Set it with: wrangler pages secret put JWT_SECRET
+# For local dev only, you can set a placeholder in .dev.vars (see .dev.vars.example).
+[vars]
+# JWT_SECRET is intentionally omitted here; set via `wrangler pages secret put JWT_SECRET`
