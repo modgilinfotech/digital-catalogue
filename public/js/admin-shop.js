@@ -1,0 +1,322 @@
+(function () {
+  "use strict";
+  const { api, el, toast, logout } = window.AdminCommon;
+
+  const loginScreen = document.getElementById("loginScreen");
+  const app = document.getElementById("app");
+  const loginForm = document.getElementById("loginForm");
+  const loginError = document.getElementById("loginError");
+
+  let categories = [];
+  let products = [];
+
+  // ---------- Auth ----------
+  async function boot() {
+    try {
+      const me = await api("/api/auth/me");
+      if (me.role !== "sub_admin" && me.role !== "super_admin") throw new Error("wrong role");
+      document.getElementById("whoAmI").textContent = `${me.email} · ${me.shop_name || "your shop"}`;
+      document.getElementById("shopTitle").textContent = me.shop_name ? `${me.shop_name} admin` : "Shop admin";
+      loginScreen.hidden = true;
+      app.hidden = false;
+      await loadAll();
+    } catch {
+      loginScreen.hidden = false;
+      app.hidden = true;
+    }
+  }
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginError.hidden = true;
+    try {
+      await api("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value,
+        }),
+      });
+      await boot();
+    } catch (err) {
+      loginError.textContent = err.message;
+      loginError.hidden = false;
+    }
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", () => logout("/admin/shop/"));
+
+  // ---------- Tabs ----------
+  document.querySelectorAll(".admin-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".admin-tab").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      document.getElementById("tab-products").hidden = btn.dataset.tab !== "products";
+      document.getElementById("tab-categories").hidden = btn.dataset.tab !== "categories";
+    });
+  });
+
+  async function loadAll() {
+    const [catRes, prodRes] = await Promise.all([api("/api/categories"), api("/api/products")]);
+    categories = catRes.categories;
+    products = prodRes.products;
+    renderCategories();
+    renderProducts();
+  }
+
+  function categoryName(id) {
+    const c = categories.find((c) => String(c.id) === String(id));
+    return c ? c.name : "Uncategorized";
+  }
+
+  // ---------- Products ----------
+  function renderProducts() {
+    const list = document.getElementById("productList");
+    list.innerHTML = "";
+    if (!products.length) {
+      list.appendChild(el("div", { class: "empty-hint" }, "No products yet. Tap “+ Add product” to create your first one."));
+      return;
+    }
+    products.forEach((p) => {
+      const row = el(
+        "div",
+        { class: "list-row" },
+        el("img", { class: "thumb", src: (p.images && p.images[0]) || "/img/placeholder.svg", alt: "" }),
+        el(
+          "div",
+          { class: "list-row__main" },
+          el("p", { class: "list-row__title" }, p.name),
+          el(
+            "p",
+            { class: "list-row__sub" },
+            `\u20B9${p.price} · ${p.quantity_available} in stock · ${categoryName(p.category_id)}`
+          )
+        ),
+        el(
+          "div",
+          { class: "list-row__actions" },
+          (() => {
+            const b = el("button", { class: "btn btn-ghost btn-small" }, "Edit");
+            b.addEventListener("click", () => openProductModal(p));
+            return b;
+          })(),
+          (() => {
+            const b = el("button", { class: "btn btn-danger btn-small" }, "Delete");
+            b.addEventListener("click", () => deleteProduct(p));
+            return b;
+          })()
+        )
+      );
+      list.appendChild(row);
+    });
+  }
+
+  async function deleteProduct(p) {
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    try {
+      await api(`/api/products/${p.id}`, { method: "DELETE" });
+      toast("Product deleted");
+      await loadAll();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
+  document.getElementById("addProductBtn").addEventListener("click", () => openProductModal(null));
+
+  function openProductModal(product) {
+    const isEdit = !!product;
+    let uploadedImages = product ? [...product.images] : [];
+
+    const overlay = el("div", { class: "modal-overlay" });
+    const catOptions = categories.map((c) =>
+      el("option", { value: c.id, selected: product && String(product.category_id) === String(c.id) ? "true" : null }, c.name)
+    );
+
+    const nameInput = el("input", { type: "text", value: product ? product.name : "", placeholder: "e.g. Cotton Straight Kurti" });
+    const priceInput = el("input", { type: "number", min: "0", step: "1", value: product ? product.price : "", placeholder: "e.g. 799" });
+    const qtyInput = el("input", { type: "number", min: "0", step: "1", value: product ? product.quantity_available : "0" });
+    const catSelect = el("select", {}, el("option", { value: "" }, "No category"), ...catOptions);
+
+    const uploaderItems = el("div", { class: "image-uploader" });
+    const addTile = el(
+      "div",
+      { class: "image-uploader__add" },
+      "+",
+      el("input", { type: "file", accept: "image/*", capture: "environment", multiple: "true" })
+    );
+
+    function renderThumbs() {
+      uploaderItems.innerHTML = "";
+      uploadedImages.forEach((src, i) => {
+        const removeBtn = el("button", { class: "image-uploader__remove", type: "button" }, "\u00D7");
+        removeBtn.addEventListener("click", () => {
+          uploadedImages.splice(i, 1);
+          renderThumbs();
+        });
+        uploaderItems.appendChild(el("div", { class: "image-uploader__item" }, el("img", { src }), removeBtn));
+      });
+      uploaderItems.appendChild(addTile);
+    }
+    renderThumbs();
+
+    const fileInput = addTile.querySelector("input");
+    fileInput.addEventListener("change", async () => {
+      const files = Array.from(fileInput.files || []);
+      fileInput.value = "";
+      for (const file of files) {
+        try {
+          toast("Uploading photo\u2026");
+          const compressed = await window.compressImage(file);
+          const form = new FormData();
+          form.append("file", compressed);
+          const res = await api("/api/upload", { method: "POST", body: form });
+          uploadedImages.push(res.url);
+          renderThumbs();
+        } catch (err) {
+          toast(err.message, true);
+        }
+      }
+    });
+
+    const saveBtn = el("button", { class: "btn btn-primary" }, isEdit ? "Save changes" : "Add product");
+    const cancelBtn = el("button", { class: "btn btn-ghost" }, "Cancel");
+    cancelBtn.addEventListener("click", () => overlay.remove());
+
+    saveBtn.addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      const price = Number(priceInput.value);
+      const quantity = Number(qtyInput.value);
+      if (!name) return toast("Please enter a product name", true);
+      if (!Number.isFinite(price) || price < 0) return toast("Please enter a valid price", true);
+
+      const payload = {
+        name,
+        price,
+        quantity_available: Number.isFinite(quantity) ? quantity : 0,
+        category_id: catSelect.value || null,
+        images: uploadedImages,
+      };
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving\u2026";
+      try {
+        if (isEdit) {
+          await api(`/api/products/${product.id}`, { method: "PUT", body: JSON.stringify(payload) });
+        } else {
+          await api("/api/products", { method: "POST", body: JSON.stringify(payload) });
+        }
+        toast(isEdit ? "Product updated" : "Product added");
+        overlay.remove();
+        await loadAll();
+      } catch (err) {
+        toast(err.message, true);
+        saveBtn.disabled = false;
+        saveBtn.textContent = isEdit ? "Save changes" : "Add product";
+      }
+    });
+
+    const card = el(
+      "div",
+      { class: "modal-card" },
+      el("h2", {}, isEdit ? "Edit product" : "Add product"),
+      el("div", { class: "field" }, el("label", {}, "Product name"), nameInput),
+      el("div", { class: "field" }, el("label", {}, "Price (\u20B9)"), priceInput),
+      el("div", { class: "field" }, el("label", {}, "Quantity available"), qtyInput),
+      el("div", { class: "field" }, el("label", {}, "Category"), catSelect),
+      el("div", { class: "field" }, el("label", {}, "Photos (front, back, side)"), uploaderItems),
+      el("div", { class: "modal-actions" }, cancelBtn, saveBtn)
+    );
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
+  // ---------- Categories ----------
+  function renderCategories() {
+    const list = document.getElementById("categoryList");
+    list.innerHTML = "";
+    if (!categories.length) {
+      list.appendChild(el("div", { class: "empty-hint" }, "No categories yet. Add one to start organizing your products."));
+      return;
+    }
+    categories
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .forEach((c, i, arr) => {
+        const upBtn = el("button", { class: "btn btn-ghost btn-small" }, "\u2191");
+        const downBtn = el("button", { class: "btn btn-ghost btn-small" }, "\u2193");
+        upBtn.disabled = i === 0;
+        downBtn.disabled = i === arr.length - 1;
+        upBtn.addEventListener("click", () => swapOrder(arr, i, i - 1));
+        downBtn.addEventListener("click", () => swapOrder(arr, i, i + 1));
+
+        const editBtn = el("button", { class: "btn btn-ghost btn-small" }, "Rename");
+        editBtn.addEventListener("click", () => renameCategory(c));
+        const delBtn = el("button", { class: "btn btn-danger btn-small" }, "Delete");
+        delBtn.addEventListener("click", () => deleteCategory(c));
+
+        list.appendChild(
+          el(
+            "div",
+            { class: "list-row" },
+            el("div", { class: "list-row__main" }, el("p", { class: "list-row__title" }, c.name)),
+            el("div", { class: "list-row__actions" }, upBtn, downBtn, editBtn, delBtn)
+          )
+        );
+      });
+  }
+
+  async function swapOrder(arr, i, j) {
+    const a = arr[i];
+    const b = arr[j];
+    try {
+      await Promise.all([
+        api(`/api/categories/${a.id}`, { method: "PUT", body: JSON.stringify({ sort_order: b.sort_order }) }),
+        api(`/api/categories/${b.id}`, { method: "PUT", body: JSON.stringify({ sort_order: a.sort_order }) }),
+      ]);
+      await loadAll();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
+  async function renameCategory(c) {
+    const name = prompt("Category name", c.name);
+    if (!name || !name.trim() || name.trim() === c.name) return;
+    try {
+      await api(`/api/categories/${c.id}`, { method: "PUT", body: JSON.stringify({ name: name.trim() }) });
+      toast("Category updated");
+      await loadAll();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
+  async function deleteCategory(c) {
+    if (!confirm(`Delete category "${c.name}"? Products in it will become uncategorized.`)) return;
+    try {
+      await api(`/api/categories/${c.id}`, { method: "DELETE" });
+      toast("Category deleted");
+      await loadAll();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
+  document.getElementById("addCategoryBtn").addEventListener("click", async () => {
+    const name = prompt("New category name");
+    if (!name || !name.trim()) return;
+    try {
+      await api("/api/categories", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim(), sort_order: categories.length }),
+      });
+      toast("Category added");
+      await loadAll();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  boot();
+})();

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shop Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body class="admin-body">
+
+<div id="loginScreen" class="login-screen" hidden>
+  <div class="login-card">
+    <h1>Shop admin</h1>
+    <p class="subtitle">Log in to manage your products and categories.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" required autocomplete="current-password" />
+      </div>
+      <div id="loginError" class="field-error" hidden></div>
+      <button type="submit" class="btn btn-primary">Log in</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="admin-shell" hidden>
+  <div class="admin-topbar">
+    <div>
+      <h1 id="shopTitle">Shop admin</h1>
+      <p class="who" id="whoAmI"></p>
+    </div>
+    <button class="btn btn-ghost btn-small" id="logoutBtn">Log out</button>
+  </div>
+
+  <div class="lock-note">
+    Shop name, logo, address, phone and social links are managed by your agency. Contact them to update those.
+  </div>
+
+  <div class="admin-tabs">
+    <button class="admin-tab is-active" data-tab="products">Products</button>
+    <button class="admin-tab" data-tab="categories">Categories</button>
+  </div>
+
+  <section id="tab-products">
+    <button class="btn btn-marigold" id="addProductBtn" style="margin-bottom:16px;">+ Add product</button>
+    <div class="panel">
+      <h2>Your products</h2>
+      <div id="productList"></div>
+    </div>
+  </section>
+
+  <section id="tab-categories" hidden>
+    <button class="btn btn-marigold" id="addCategoryBtn" style="margin-bottom:16px;">+ Add category</button>
+    <div class="panel">
+      <h2>Your categories</h2>
+      <div id="categoryList"></div>
+    </div>
+  </section>
+</div>
+
+<script src="/js/admin-common.js"></script>
+<script src="/js/compress.js"></script>
+<script src="/js/admin-shop.js"></script>
+</body>
+</html>

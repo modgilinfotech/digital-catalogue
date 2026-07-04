@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Super Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body class="admin-body">
+
+<div id="loginScreen" class="login-screen" hidden>
+  <div class="login-card">
+    <h1>Agency admin</h1>
+    <p class="subtitle">Log in to manage all client shops.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" required autocomplete="current-password" />
+      </div>
+      <div id="loginError" class="field-error" hidden></div>
+      <button type="submit" class="btn btn-primary">Log in</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="admin-shell" hidden>
+  <div class="admin-topbar">
+    <div>
+      <h1>Agency admin</h1>
+      <p class="who" id="whoAmI"></p>
+    </div>
+    <button class="btn btn-ghost btn-small" id="logoutBtn">Log out</button>
+  </div>
+
+  <div class="admin-tabs">
+    <button class="admin-tab is-active" data-tab="shops">Shops</button>
+    <button class="admin-tab" data-tab="catalogue">Manage a shop's catalogue</button>
+  </div>
+
+  <section id="tab-shops">
+    <button class="btn btn-marigold" id="addShopBtn" style="margin-bottom:16px;">+ Onboard new shop</button>
+    <div class="panel">
+      <h2>All shops</h2>
+      <div id="shopList"></div>
+    </div>
+  </section>
+
+  <section id="tab-catalogue" hidden>
+    <div class="panel">
+      <h2>Select a shop</h2>
+      <div class="field">
+        <label for="shopSelect">Shop</label>
+        <select id="shopSelect"></select>
+      </div>
+    </div>
+
+    <div id="catalogueManager" hidden>
+      <button class="btn btn-marigold" id="addProductBtn" style="margin-bottom:16px;">+ Add product</button>
+      <div class="panel">
+        <h2>Products</h2>
+        <div id="productList"></div>
+      </div>
+
+      <button class="btn btn-marigold" id="addCategoryBtn" style="margin-bottom:16px;">+ Add category</button>
+      <div class="panel">
+        <h2>Categories</h2>
+        <div id="categoryList"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="/js/admin-common.js"></script>
+<script src="/js/compress.js"></script>
+<script src="/js/admin-super.js"></script>
+</body>
+</html>
